@@ -1,0 +1,151 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-app-prometheus
+  namespace: argocd
+spec:
+  syncPolicy:
+    automated:
+      prune: true
+    syncOptions:
+      - ServerSideApply=true
+      - CreateNamespace=true
+  project: default
+  source:
+    chart: kube-prometheus-stack
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 51.9.1
+    helm:
+      releaseName: prometheus
+      valuesObject:
+        global:
+          pspEnabled: false
+
+        alertmanager:
+          enabled: false
+
+        grafana:
+          enabled: true
+          # image:
+          #   repository: grafana/grafana
+          # defaultDashboardsTimezone: Europe/Paris
+          # deploymentStrategy:
+          #   type: Recreate
+          # rbac:
+          #   pspEnabled: false
+          ingress:
+            ingressClassName: traefik
+            enabled: true
+            annotations:
+              cert-manager.io/cluster-issuer: "letsencrypt-kubequest"
+              cert-manager.io/common-name: grafana.k3s.lifoto.co
+            hosts:
+              - grafana.k3s.lifoto.co
+            path: /
+            tls:
+              - secretName: grafana-tls
+                hosts:
+                  - grafana.k3s.lifoto.co
+          # sidecar:
+          #   image:
+          #     repository: kiwigrid/k8s-sidecar
+          #   datasources:
+          #     defaultDatasourceEnabled: false
+          # additionalDataSources:
+          #   - name: Lifoto
+          #     type: prometheus
+          #     uid: prometheus
+          #     url: http://prometheus-kube-prometheus-prometheus.monitoring:9090/
+          #     access: proxy
+          #     isDefault: false
+          #     jsonData:
+          #       timeInterval: 30s
+          #   - name: Lifoto-Logs
+          #     type: loki
+          #     uid: Lifoto-Logs
+          #     url: http://loki:3100/
+          #     access: proxy
+          #     isDefault: false
+          # extraConfigmapMounts: 
+          #   - name: grafana-cacert
+          #     configMap: grafana-cacert
+          #     mountPath: /etc/grafana/ssl/CACert.pem
+          #     subPath: CACert.pem
+          #     readOnly: true
+          persistence:
+            enabled: true
+            size: 500Mi
+          #   storageClassName: storage-class-test
+          #   existingClaim: pvc-grafana
+          # initChownData:
+          #   enabled: false
+          # grafana.ini:
+          #   auth.ldap:
+          #     enabled: false
+          # ldap:
+          #   enabled: false
+
+        # kubeControllerManager:
+        #   insecureSkipVerify: true  
+
+        # kubeEtcd:
+        #   service:
+        #     enabled: true
+        #     port: 2379
+        #     targetPort: 2379
+          # serviceMonitor:
+          #   scheme: https
+          #   serverName: localhost
+          #   caFile: /etc/prometheus/secrets/etcd-client-cert/etcd-ca
+          #   certFile: /etc/prometheus/secrets/etcd-client-cert/etcd-client
+          #   keyFile: /etc/prometheus/secrets/etcd-client-cert/etcd-client-key      
+
+        # kubeScheduler:
+        #   insecureSkipVerify: true   
+
+        # prometheus-node-exporter:
+        #   tolerations:
+        #     - key: "CriticalAddonsOnly"
+        #       operator: Exists
+        #       effect: "NoExecute"
+
+        prometheus:
+          # serviceAccount:
+          #   name: "prometheus"
+          ingress:
+            enabled: true
+            ingressClassName: traefik
+            annotations:
+              cert-manager.io/cluster-issuer: "letsencrypt-kubequest"
+              cert-manager.io/common-name: prometheus.k3s.lifoto.co
+            hosts:
+              - prometheus.k3s.lifoto.co
+            tls:
+              - secretName: prometheus-tls
+                hosts:
+                  - prometheus.k3s.lifoto.co
+            pathType: ImplementationSpecific
+          # prometheusSpec:
+          #   secrets:
+          #     - etcd-client-cert
+          #     - ca-cert
+            # retention: 62d
+            # retentionSize: 35GB
+            # storageSpec:
+            #   volumeClaimTemplate:
+            #     spec:
+            #       storageClassName: storage-class-test
+            #       accessModes: ["ReadWriteOnce"]
+            #       resources:
+            #         requests:
+            #           storage: 36Gi
+            #ruleNamespaceSelector:
+            #  any: true
+            #serviceMonitorSelector:
+              #matchLabels:
+                #prometheus: todiscover
+            serviceMonitorSelectorNilUsesHelmValues: false
+            # additionalScrapeConfigs: []
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: monitoring
