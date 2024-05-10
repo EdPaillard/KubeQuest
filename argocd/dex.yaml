@@ -1,0 +1,287 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dex
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: dex
+  name: dex
+  namespace: dex
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dex
+  template:
+    metadata:
+      labels:
+        app: dex
+    spec:
+      volumes:
+        - name: config
+          configMap:
+            name: dex
+            items:
+              - key: config.yaml
+                path: config.yaml
+        - name: tls
+          secret:
+            secretName: dex-tls
+        # - name: ssl
+        #   secret:
+        #     secretName: dex-tls
+        #     items:
+        #       - key: tls.crt
+        #         path: tls.crt
+        # - name: ssl
+        #   secret:
+        #     secretName: dex-tls
+        #     items:
+        #       - key: tls.key
+        #         path: tls.key
+        #     path: /var/lib/rancher/k3s/server/tls/server-ca.crt
+        #     type: File
+        # - name: tls-key
+        #   hostPath:
+        #     path: /var/lib/rancher/k3s/server/tls/server-ca.key
+        #     type: File
+      serviceAccountName: dex # This is created below
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+      containers:
+        - image: ghcr.io/dexidp/dex:v2.32.0
+          name: dex
+          command: ["/usr/local/bin/dex", "serve", "/etc/dex/cfg/config.yaml"]
+
+          ports:
+          - name: https
+            containerPort: 5556
+
+          volumeMounts:
+          - name: config
+            mountPath: /etc/dex/cfg/config.yaml
+            subPath: config.yaml
+          - name: tls
+            readOnly: true
+            mountPath: /etc/dex/tls
+          # - name: ssl
+          #   readOnly: true
+          #   mountPath: /etc/dex/tls.key
+          
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 5556
+              scheme: HTTPS
+
+          env:
+          - name: GITHUB_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: github-client
+                key: client-id
+          - name: GITHUB_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: github-client
+                key: client-secret
+          - name: KUBERNETES_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dex
+  namespace: dex
+data:
+  config.yaml: |
+    issuer: https://dex.k3s.lifoto.co:32000
+    logger:
+      level: "debug"
+    storage:
+      type: kubernetes
+      config:
+        inCluster: true
+    web:
+      https: 0.0.0.0:5556
+      tlsCert: /etc/dex/tls/tls.crt
+      tlsKey: /etc/dex/tls/tls.key
+    oauth2:
+      responseTypes: ["code", "token", "id_token"]
+      skipApprovalScreen: true
+
+    connectors:
+    - type: github
+      id: github
+      name: GitHub
+      config:
+        clientID: $GITHUB_CLIENT_ID
+        clientSecret: $GITHUB_CLIENT_SECRET
+        redirectURI: https://dex.k3s.lifoto.co:32000/callback
+        orgs:
+          - name: kubequest-lil
+
+    enablePasswordDB: true
+    staticPasswords:
+    - email: "ed.paillard@gmail.com"
+      # bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
+      hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+      username: "admin"
+      userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
+
+    oauth2:
+      skipApprovalScreen: true
+      responseTypes: ["code", "token", "id_token"]
+
+    staticClients:
+    - id: dex-k8s-authenticator
+      redirectURIs:
+      - https://login.k3s.lifoto.co/callback
+      name: 'KubequestApp'
+      secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dex
+  namespace: dex
+spec:
+  type: NodePort
+  ports:
+  - name: dex
+    port: 5556
+    protocol: TCP
+    targetPort: 5556
+    nodePort: 32000
+  selector:
+    app: dex
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: dex
+  name: dex
+  namespace: dex
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dex
+rules:
+- apiGroups: ["dex.coreos.com"] # API group created by dex
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["create"] # To manage its own resources, dex must be able to create customresourcedefinitions
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dex
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dex
+subjects:
+- kind: ServiceAccount
+  name: dex           # Service account assigned to the dex pod, created above
+  namespace: dex  # The namespace dex is running in
+---
+# apiVersion: traefik.io/v1alpha1
+# kind: IngressRoute
+# metadata:
+#   name: dex-ingressroute
+#   namespace: dex
+#   annotations:
+#     kubernetes.io/tls-acme: "true"
+# spec:
+#   entryPoints:
+#     - websecure
+#   routes:
+#   - match: Host(`dex.k3s.lifoto.co`)
+#     kind: Rule
+#     services:
+#     - name: dex
+#       port: 5556
+#       scheme: https
+#   tls:
+#     secretName: dex-tls
+
+
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: dex-ingress
+#   namespace: dex
+# spec:
+#   ingressClassName: traefik
+#   tls:
+#     - hosts:
+#       - dex.k3s.lifoto.co
+#       secretName: dex-tls
+#   rules:
+#     - host: dex.k3s.lifoto.co
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: dex
+#                 port:
+#                   number: 5556
+---
+apiVersion: v1
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURLakNDQWhLZ0F3SUJBZ0lVZHJOaFJnZ3NoSko0Q2xiL2tsUnp3MTdiZ2xzd0RRWUpLb1pJaHZjTkFRRUwKQlFBd0VqRVFNQTRHQTFVRUF3d0hhM1ZpWlMxallUQWVGdzB5TkRBME1ESXdPRFV6TUROYUZ3MHlOREEyTURFdwpPRFV6TUROYU1CSXhFREFPQmdOVkJBTU1CMnQxWW1VdFkyRXdnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCCkR3QXdnZ0VLQW9JQkFRQ3hQaThWS1Q2eHVieHJSSFg4Q2FvQit0QVBaR0Y0UlBhcElNWXZMVDF4WDRyK0xkUEkKQ3Yvci9pNDVTNFpLN0RjamtlcSsrK203MVVmZy8xbmhJd2xOUTFOdEIyWkhDN2FLMmJRU25VbHpzTWp0eEFoZwpzNkdKL0FEZTdnUmI1WjBsQU1aVmJnWlVtT002eUZMYlJHZ0J4VkRadWVlSmF1Q29qN0xsN2pidGxiRTl6T1BZClZVS2FTZENoSlBtVFQ5MlVOVmlXM2lOK0YvYVJYYnFrbFd2YnAxZE9LSDZXWm84THI1RUluNURYbmxpck04RWwKaWRYVWM3Znk2dkFpQjV0Qm9qbE8wK1k5dGNFZ1U1RnNUcnBMOHhqOGdFUy9iUGw5bWYzam8zRGs3bUJPdFk4RwpqYmVSL05KU1ZzWUlRNXJoWWFYM1QyUW1RdnJ6VWZSMGNzQVpBZ01CQUFHamVEQjJNQWtHQTFVZEV3UUNNQUF3CkN3WURWUjBQQkFRREFnWGdNQndHQTFVZEVRUVZNQk9DRVdSbGVDNXJNM011YkdsbWIzUnZMbU52TUIwR0ExVWQKRGdRV0JCUWtQdEk0ZFhxRlVsemY0eDV4aGV1UzRESjBJekFmQmdOVkhTTUVHREFXZ0JUNXpTWEdEL3JmQ3NGKwpSdUorQ3RlSXVXanFpVEFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBeVVCUmVGWnhUNlIyYUp2aHQ2N29HL1hPCndOYmxrVCs4cnRXMjl1cHJPL2FxUmdpaGkyN0JDcUhGTkh3VFY4UVdLOFRidXhPNFY0MjRUeWdXSWorVU5SUDEKSDdBU1g4bzVCYkZRbnZGSWtPUG5HRHZ3Q2lxeU91ZlRSd1lUWHRtWk5XeGU2MVlGUHlWL1BTbHZnU3NoMXJRQgpiMWhIMkZ0NnBWbm93K2pRVTI0czJqb1k5VG9HelRVdG4wVUc4MXl0UHAzbHRSMkpvMFlJd3JOT1VaL1Fvc050Cm1UUTJkRVpTcVZibmQxam90UVNEQjJKcHdxdmFxVHhtQkprM1hTWEpRK3ZOandBalZpZTlTSThIRzVoTklWZ2IKSTVVTjVyZHNpNjQxaFFhbUZidUNnMDVSYmFKYmtFanB4Y2xlVG1IQTFmNTh0aThaOGtrdFBCbDNlbGhSMGc9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg== # LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURLakNDQWhLZ0F3SUJBZ0lVVERqSFU5eCtiK1BEMWVSQWoySVlOSkl4WWg4d0RRWUpLb1pJaHZjTkFRRUwKQlFBd0VqRVFNQTRHQTFVRUF3d0hhM1ZpWlMxallUQWVGdzB5TkRBek1qQXlNREl6TlRsYUZ3MHlOREF6TXpBeQpNREl6TlRsYU1CSXhFREFPQmdOVkJBTU1CMnQxWW1VdFkyRXdnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCCkR3QXdnZ0VLQW9JQkFRREIvUDJ2TXpqQXE1RmlnR3VVclRKRXZxcmE3RndkK0QzMTdYSFFjbGcvWERCSnNCWkEKRS96SFl0a003K0NMRXZRSWZiRW1qNGpoM3hWNWY2b1FHVldhbDFZdVdsN3A4ZFBGQUpTUWVIcmdvQnp3TTd2UAoxWnRDNTZHeWNRYXhZWE9ldnZ0VjJMSUVlcHZtK2drVHNSYnZzdktkUE1OSWVOazdiTkxESlZ2Uit6RHhTQ1d3CmtqMG0rWUt1c0NyaFR4MGRFajVlYlpsVGpVZU5YUEtNSnNIM2J1ak1oWGhvd29jME5iSG5QRTRhOXhhR3d5WGQKZzJxb3U2TXEzdkRqd0Mvc0c4cFVFOFFIVVI5WDJsWVpUS1FSOEFhWlMrWVdXcjl6MFRXeGxaaVVnWFRHdUlUNApsRUNBYnJEekRxWjFaQnNRRHE5d2taQXUyNU14aVRFTU5nRkJBZ01CQUFHamVEQjJNQWtHQTFVZEV3UUNNQUF3CkN3WURWUjBQQkFRREFnWGdNQndHQTFVZEVRUVZNQk9DRVdSbGVDNXJNM011YkdsbWIzUnZMbU52TUIwR0ExVWQKRGdRV0JCUy9oVGpkVGU5SHluNTdtRDVjQVFFOXV1a3dIREFmQmdOVkhTTUVHREFXZ0JRWGlwQUNTTFlLOWRUVQplMm45dmlqai9YbENjekFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBRmJPR0hITk5pd2s0eUl6cjZnWmRFQVA4CjlRb1U5eHQvOTRNZVlETHFPUWprY0lUTHNScGdaRVpPNUZKT21oeDBpQ003VmhBM3hCYW5xR0pib0orOHNuOUkKQTh2emN0S0JVVHpIL3gzNzN4SVRZQVA4S0FTRUNKVklqWXFtN2s4d0ltZDRROEVMeTZCQllMellGc3lYSGlydwpUc0g0VFNBVjJSVUphcjB0Y2hYdTN5dGM5a3UyUm5EQThrTmhqeUR2ZmsxRk9ZK2hzejR4L1NLMHp4RlVZNDlrCmVBdUhoQjQ0aFQ5Kzl2c1lrWnR1NGxySDRSNVhqSGV6ODAyN2pDbWNTbGtqSUVwUWl1bVcxRFQra29jNi9aRDYKbGZyQU8xeGFKSnpMZzIyNVpZeG9QNTB1L0xkMDFza1lPOC85ZzhCaWxLc1YvZXBtazd3TVZwUGJ2eGltRlE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2d0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktrd2dnU2xBZ0VBQW9JQkFRQ3hQaThWS1Q2eHVieHIKUkhYOENhb0IrdEFQWkdGNFJQYXBJTVl2TFQxeFg0citMZFBJQ3Yvci9pNDVTNFpLN0RjamtlcSsrK203MVVmZwovMW5oSXdsTlExTnRCMlpIQzdhSzJiUVNuVWx6c01qdHhBaGdzNkdKL0FEZTdnUmI1WjBsQU1aVmJnWlVtT002CnlGTGJSR2dCeFZEWnVlZUphdUNvajdMbDdqYnRsYkU5ek9QWVZVS2FTZENoSlBtVFQ5MlVOVmlXM2lOK0YvYVIKWGJxa2xXdmJwMWRPS0g2V1pvOExyNUVJbjVEWG5saXJNOEVsaWRYVWM3Znk2dkFpQjV0Qm9qbE8wK1k5dGNFZwpVNUZzVHJwTDh4ajhnRVMvYlBsOW1mM2pvM0RrN21CT3RZOEdqYmVSL05KU1ZzWUlRNXJoWWFYM1QyUW1RdnJ6ClVmUjBjc0FaQWdNQkFBRUNnZ0VBVExEUVpJS2RLdjluNUs0UnN3Vm5kMFhVSXVUWE85ZnpOb2tFMThMbWRCalkKSmxVajdzbTdwSnd0MmdLd3o5aFhuMTl5eUVKdUJ5VW8zZFQvU2VnRURWZFZVTGJEN1hmRysxdHBqQ2hjY04rTQpnVHl5TjAxaVZ6Y2dGVlc5c3htdUhpV3dxNlJZdnVBTWFoSGxzQlJ3UUZ2bE9PQTByQVAvdzAreUk4VW9KVEpICjRDVExDQnA1Y1E4U0dBeFNjd1ZrVDlWNThudHRwMjRQZUdPZG85UlRnaE1hYlREa2I5T0tzdTlyK3JHZW1wdVUKcXBEOTBTdUc0RTBmNlc4cFdWZkdwTlJuWmYrdXgvMEMzZGhNUjU1blE5ZmVJd1RVcnFmM2dCcG8zQ0NGc25ZNwpQckxYUTJnOHgraTUxMVRmcEt6VTFOSUNCWWVEMStSd2ZBaExESXY5OVFLQmdRRHJwOXBDSTRCdXBBbkQwREpqCjAxVm1KdXdySlBDZXJIVGVkRkZUODFzQmpQK1lLYjRXNkVGZVA5TEwweE80TVpEV29IaGJ1UFRCTkVhRUpUSnoKcnNtaEZVcUZiSEJMait0NEdtb1oydDV4MmhnbWw5RklrVjIrV0hsUzJyU05CU0VMVlBQaW5tNnRZWjlwU0xlbgpyM0ZxWTdKb1dCeERpTGxwVVZ1eUdxVUJBd0tCZ1FEQWkxN0lWa25Fd1I0RG1RanpoS0doWXNlS2ZFVXRWUXd5Ck9na284RDRCV05MeTdvdE9OTnVMNW00U282QVRKWHlqRy9nV0dJZm1Ua3Q2d2JhTUVFbXJGYW9ZejV4UmpFcEIKUlFGbUJOZmVWSThhMlFHbFdMcFMxNTI2Mnc5SWhsakNXME8zOWNNZUZiT0wzYnN2b1ZHVFVpZDIrR2c1ckRrVgpReGRmUzVOWnN3S0JnUUNEUFAyT0s5dFF3c1kxYVBOSEtPQzhmUnkxZ21NRzJ5QlM2eENINGxWaWJiWENkaXpJCjhSdkdjMkRmNW5OcTl4K2toOFcvdnlkL21hOVQxS3RlUlk5QXlHeXlGWXdNYU9CSUNOM2gvRVE1djY0SGdERXIKYXRsOE1pV1BBUUhnTDJVUnZJUCtSeUY0S1kvdndIR1hUMXVvVmxGN1R1YWVyYndrYlF6V0NZU3ZKUUtCZ1FDaQpYeVhRSmt4UlcxWVhUSi9xMUdlRmRJcTNzM0tXOXdpdzlwWXc2dUF2UEp1d2VCQU1KTEVjZW5kS3lxZThYYm1NCng1SmY5OUhyR3cyMStOUWJxOFNrUFVIVGFJajNrQ295ZnFIZVNhbE5lZHV3bFY0NDlPa3o0VmJIYytLZ2s0TVkKYStSZ3B5VWpJc1BsNkZmcG84M3FRYmE4TW1HYWVTMHVUQVRTdlNZRzF3S0JnUUM0UjQzV25qOHdoYUhWUjZlZAp2eHVOYzNiTzE2STA2VlNYVDQxaUswK2NmU2QyMnJWeml2N1hIdDVXeE5KS3F1b1YwUUV6MHNCTkFDODB2eTcrCjdDcVhsTDE3VDNJOEFUTEJnOWRvZC9tYVNzNVhrUlc5Z1NxZTIrcjVkdkoxUEhoR0NWRTFwVFA2UysxblVSU3YKc3MzenVrZmZMSGRYTDZjYTBKZWlmU2hwOHc9PQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg== # LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2UUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktjd2dnU2pBZ0VBQW9JQkFRREIvUDJ2TXpqQXE1RmkKZ0d1VXJUSkV2cXJhN0Z3ZCtEMzE3WEhRY2xnL1hEQkpzQlpBRS96SFl0a003K0NMRXZRSWZiRW1qNGpoM3hWNQpmNm9RR1ZXYWwxWXVXbDdwOGRQRkFKU1FlSHJnb0J6d003dlAxWnRDNTZHeWNRYXhZWE9ldnZ0VjJMSUVlcHZtCitna1RzUmJ2c3ZLZFBNTkllTms3Yk5MREpWdlIrekR4U0NXd2tqMG0rWUt1c0NyaFR4MGRFajVlYlpsVGpVZU4KWFBLTUpzSDNidWpNaFhob3dvYzBOYkhuUEU0YTl4YUd3eVhkZzJxb3U2TXEzdkRqd0Mvc0c4cFVFOFFIVVI5WAoybFlaVEtRUjhBYVpTK1lXV3I5ejBUV3hsWmlVZ1hUR3VJVDRsRUNBYnJEekRxWjFaQnNRRHE5d2taQXUyNU14CmlURU1OZ0ZCQWdNQkFBRUNnZ0VBQnJhMjlab211UzJzUUVYNTNkdnBWUGdWQkFoUkh5MFR3VHFyWG8rajNwR0EKdWFsNytQekN4TE1obUVhSENzUFMvcVk4VVgxL094Mys2Vys4Z1laMjhDZVRzU2YvTXB2a0p6bkt2OU5Eb1c3agoxdFpiaGlrUGtMbTJpVzFLL05ieGF2UStKa0x6MVBRdlhYSkMzOVBEQmttM0J0cHZBY2VZOFJXN2w2Qm4zMHBXCjRDeVpWYlh4akRSd1F2WVRuVC9lMmlPWG5FODRYMUNXUUgrbXZSdkVmV2U3eTgvMEY5U3Bqak1qanA5OGw1ZE0Kc0MyN1hlY2VWak0zcmtMbk1ldkRjNTU5UFZ4eFhMWWdVeWlURVA0bE1uc01YVDZ1OEU1dGdSMTRmbXlTdTVwKwpUcVZtdUlEaCtjR3BZTHVJVkxTUEJGUURLNmFUWGpUVFNNcFRENFF3U1FLQmdRRCtiL2ZtM0wxK1dkOEpVbmVUCjUzeERLZndXWHMxRmhJaG0xNE5WaFN6aXozb1EwNGRMazA4NzZVT2ZqWExWYXplYmVPQk53aFB2d0lNSkF0SGIKcUMxbHlsNWFZQjlxQzZjdENiNkhnN1NLUlRpQ2NKTnZ1eXRoU1p4R2NVL3p3MmN1NjNOTzc0R3ExaGhPR0Y0MQoveGFYTFIxVlMvNklxVWhaU0ZiUkNHL0p4UUtCZ1FERExmdTFHR3dsTmZVN1hzZGdTdm55dVFFVUZyVXY2Y1hrCkI3N2Y5eUxzMlpCeDZ0WnJUNWw1Z2lKWmU4WVBwODJZV0haV001SmR6dHVPcFg0a2VJSFdHK0NxNTZ0SWFqZkgKS0hEKzY5WittQk1XV0RIQkdBSEZ0d3hUOVdwSjlVbldYY2JrRVVnSGZveHZITG5wdGRjY3FmK1N6V0JCbEJ6eApkTmFFd0g4ZFRRS0JnUURsUktPUFJhMENvNXpVVzVrZ2oyQnJiUE9ZZk1oZk1mTnZLQmRTQW5UVjA3cmNXcDc1ClBMNFM4RGhkRnlvNG9TbzBVQkZlUDltVEdsZDQwUytrek1CTGpyVENud2J2bVp5RWV0bFNaeDFSMHRuK3Y4NDYKeWQ5bkJOdHFwa1F6RlFwdlB2NWlUSEw5SzNvdk5Nbi93ZUhyUzEyNU5JY2hRZGpOaXQrZjhBZzdPUUtCZ0VtMAoyc0lueCtkQmVpdUNmazVaNGd3TVcyRG50bUt5cUgyVmd6cDJ6S1NmQUpKVWVjYXFsNjJ3UENLSXdHSDNINGZ4Cm1EYXpZUW0xN1dud0N6UGdvajlsNWJFRXJjVTUvM2hoU0ZLc1l5TUpjT1BXU0d2QUVpTkZIZzJ5dHdIWTlKcFUKYmFDQStpK0NWYXc4TCtVWE8zWGlxTllhWXNoQkU3RUhTMTkwaGt4ZEFvR0FjNTVBcFRwcVhaVVhCbGpsR2Zibwp5R2pYRWk1YU85bnErMXRlOUFaRnVINWRka2xEU2dwcFJYRUpPdjFHYUpDT3UzOXBpVklaS01IRnpDRlp2Vm1aCmh2YStZVlVzcVNMb3FwUlZYUisweWFUdDBoZVJWRXBkMWZ0a0pEM09QSGp2TWQrSEwvc1U5RFN0ZlJmd2FVdDQKVldpYVdzdkVYMjFma1VVaXYvNFd5QWs9Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
+  ca.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJkakNDQVIyZ0F3SUJBZ0lCQURBS0JnZ3Foa2pPUFFRREFqQWpNU0V3SHdZRFZRUUREQmhyTTNNdGMyVnkKZG1WeUxXTmhRREUzTVRBNU5qYzBPVEF3SGhjTk1qUXdNekl3TWpBME5EVXdXaGNOTXpRd016RTRNakEwTkRVdwpXakFqTVNFd0h3WURWUVFEREJock0zTXRjMlZ5ZG1WeUxXTmhRREUzTVRBNU5qYzBPVEF3V1RBVEJnY3Foa2pPClBRSUJCZ2dxaGtqT1BRTUJCd05DQUFSS3prNVZ4aFVxcDAxOVdIa0VtcVF0OU85QTFsRzZYQnlEd2ZjWlZjNFoKK2EwZjdKVjFpaml4cEMzQWRtcnF6Wk1xN0h6M2piREY5VTRKVERjMUdDMDlvMEl3UURBT0JnTlZIUThCQWY4RQpCQU1DQXFRd0R3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFRmdRVTR5SWVrOGR5K0VFWkIzL09UalMvCnAzR0hJZTh3Q2dZSUtvWkl6ajBFQXdJRFJ3QXdSQUlnWXVPQkZMZ1ZWekRKaG4ydzNnM0xMQ2lpKy9XU0VIRkEKa1VmeTQ2QVBrWlFDSUVjZVUwTndSZ1F2anV4V2I2YlBTK25vUDE2R3FXd1pBMGFlNUFHbEIrYmMKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
+kind: Secret
+metadata:
+  name: dex-tls
+  namespace: dex
+type: kubernetes.io/tls
+---
+apiVersion: v1
+data:
+  client-id: MjJiMDliNmI0ODI4YWNhNWEyMjc=
+  client-secret: NzU1MDczNzlkYjQ3NjUzM2I0ZGU3ZGU4NjlhNzIyYWNkY2FhMGJhMw==
+kind: Secret
+metadata:
+  name: github-client
+  namespace: dex
+# ---
+# apiVersion: cert-manager.io/v1
+# kind: Certificate
+# metadata:
+#   name: cert-auth-dex
+#   namespace: dex
+# spec:
+#   secretName: dex-tls
+#   dnsNames:
+#     - dex.k3s.lifoto.co
+#   issuerRef:
+#     name: letsencrypt-kubequest
+#     kind: ClusterIssuer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dex-cluster-auth
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: Group
+    name: kubequest-lil:kubernetes-admins
+    apiGroup: rbac.authorization.k8s.io

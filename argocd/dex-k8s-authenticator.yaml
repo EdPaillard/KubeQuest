@@ -1,0 +1,149 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dex-k8s-authenticator
+  namespace: dex
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5555
+      targetPort: http
+      name: http
+  selector:
+    app: dex-k8s-authenticator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dex-k8s-authenticator
+  namespace: dex
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dex-k8s-authenticator
+  template:
+    metadata:
+      labels:
+        app: dex-k8s-authenticator
+    spec:
+      containers:
+        - name: dex-k8s-authenticator
+          image: mintel/dex-k8s-authenticator
+          imagePullPolicy: IfNotPresent
+          ports:
+          - name: http
+            containerPort: 5555
+            protocol: TCP
+          args: [ "--config", "config.yaml" ]
+          # livenessProbe:
+          #   httpGet:
+          #     path: /healthz
+          #     port: http
+          # readinessProbe:
+          #   httpGet:
+          #     path: /healthz
+          #     port: http
+          volumeMounts:
+            - name: config
+              subPath: config.yaml
+              mountPath: /app/config.yaml
+            - name: tls-key
+              mountPath: /etc/tls/tls.crt
+              subPath: ca.crt
+          env:
+          - name: GITHUB_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: github-client
+                key: client-secret
+      volumes:
+        - name: config
+          configMap:
+            name: dex-k8s-authenticator
+        - name: tls-key
+          secret:
+            secretName: dex-tls
+        # - name: tls
+        #   secret:
+        #     secretName: dex-tls
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dex-k8s-authenticator
+  namespace: dex
+data:
+  config.yaml: |
+    listen: http://0.0.0.0:5555
+    web_path_prefix: /
+    debug: true
+    clusters:
+      - client_id: dex-k8s-authenticator
+        client_secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+        issuer: https://dex.k3s.lifoto.co:32000
+        k8s_ca_pem_file: /etc/tls/tls.crt
+        k8s_master_uri: https://kubequest-vm0.westeurope.cloudapp.azure.com:6443
+        name: KubequestApp
+        redirect_uri: https://login.k3s.lifoto.co/callback
+        short_description: My Kubequest k3s cluster
+        description: My Kubequest k3s cluster
+    trusted_root_ca: |
+        -----BEGIN CERTIFICATE-----
+        MIIDBTCCAe2gAwIBAgIUYqx81vQLOcPuqnsTZn86gVa2SrcwDQYJKoZIhvcNAQEL
+        BQAwEjEQMA4GA1UEAwwHa3ViZS1jYTAeFw0yNDA0MDIwODUzMDNaFw0yNDA2MDEw
+        ODUzMDNaMBIxEDAOBgNVBAMMB2t1YmUtY2EwggEiMA0GCSqGSIb3DQEBAQUAA4IB
+        DwAwggEKAoIBAQDQyD7b9BAH4pUoVCVdLllgwDSBBiw2PxvwgJUyQ/zL9tIv7Ldn
+        xvCJC6XO3hzlu+u7Vvco4V7wzHR4noK2QBcRCOOsyfmXHNlFYcgpWLNniiNymkbM
+        GRKTqPCUUe03vAKVM5kavDAzlflBDL3S28lEmoYKcUq8+JA05DT83r57bMxNh5oE
+        5uyuQRi5ZZV/QUpbiLheY0oKSqULxBDVrtdaW4g+034cun/AivMnLGwMmKTWiZW8
+        h9Qk2xT053NVrEMyynYqxGdfu7Ggb7NRxFuZ7axG6azx0dMLG5jt2xI+HQv7Jnyx
+        kTTM2IXjMDJx9uwyZ8bLpV38iaO09YrARfHnAgMBAAGjUzBRMB0GA1UdDgQWBBT5
+        zSXGD/rfCsF+RuJ+CteIuWjqiTAfBgNVHSMEGDAWgBT5zSXGD/rfCsF+RuJ+CteI
+        uWjqiTAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQC405xQ9bP+
+        Ht7PKIAFU4bMKTMSEzGShg/99NJGO9PxPS26Axoh2z8MrotrLMfi7/BLDFsPACaY
+        IoFx5/gXbbi1vxgITWKan38XE9ROxTIKUP23gxZcL9G31SVwzt/gEPq2Jg4ydvPZ
+        c7IZOGivEJ3sEkPX9NNIAlDzHgoYY8X/EuDmprZqeFV8FX2WKGXo2RD4fFN/oPoD
+        MkrA6E7Hya6mlV4pgQNyx83+H7E1tK/NXMy7h6pYp/40bS/VWHtlQwXylhFd5ueS
+        WnS+WF6uIzrOs2uDc1gJ+5NOfjtZiLJGXSzlXoiOvEIRT4lK8JK91UtCCJUnpY8p
+        ++VoTevV1lMT
+        -----END CERTIFICATE-----
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dex-k8s-authenticator
+  namespace: dex
+  # annotations:
+  #   kubernetes.io/tls-acme: "true"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+      - login.k3s.lifoto.co
+      secretName: cert-auth-login
+  rules:
+    - host: login.k3s.lifoto.co
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dex-k8s-authenticator
+                port:
+                  number: 5555
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cert-auth-login
+  namespace: dex
+spec:
+  secretName: cert-auth-login
+  dnsNames:
+    - login.k3s.lifoto.co
+  issuerRef:
+    name: letsencrypt-kubequest
+    kind: ClusterIssuer
