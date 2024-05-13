@@ -1,9 +1,17 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: kubernetes-dashboard
+  namespace: dashboard
+---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   labels:
     k8s-app: kubernetes-dashboard
-  name: kubernetes-dashboard
+  name: dashboard
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -63,13 +71,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubernetes-dashboard
-    namespace: kubernetes-dashboard
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  labels:
-    k8s-app: kubernetes-dashboard
-  name: kubernetes-dashboard
-  namespace: kubernetes-dashboard
+    namespace: dashboard
