@@ -22,7 +22,7 @@ spec:
           isDefault: false
           ingress:
             enabled: true
-            ingressClassName: nginx
+            ingressClassName: traefik
             annotations:
               cert-manager.io/cluster-issuer: "letsencrypt-kubequest"
               cert-manager.io/common-name: loki.k3s.lifoto.co
