@@ -7,23 +7,23 @@ metadata:
 
 # Gitlab examples - Personal Access Token for Github
 
-apiVersion: v1
-kind: Secret
-metadata:
-  name: renovate-env
-  namespace: renovate
-type: Opaque
-stringData:
-  RENOVATE_AUTODISCOVER: 'false'
-  RENOVATE_ENDPOINT: 'https://github.com/kubequest'
-  RENOVATE_GIT_AUTHOR: 'Renovate Bot <renovatebot@epitech.eu>'
-  RENOVATE_PLATFORM: 'github'
-  RENOVATE_TOKEN: ''
-  RENOVATE_CONFIG_FILE: '/opt/renovate/config.json'
-  RENOVATE_BASE_DIR: '/tmp/renovate/'
-  GIT_SSL_NO_VERIFY: '1'
-  NODE_TLS_REJECT_UNAUTHORIZED: '0'
-  LOG_LEVEL: 'debug'
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: renovate-env
+#   namespace: renovate
+# type: Opaque
+# stringData:
+#   RENOVATE_AUTODISCOVER: 'false'
+#   RENOVATE_ENDPOINT: 'https://github.com/kubequest'
+#   RENOVATE_GIT_AUTHOR: 'Renovate Bot <renovatebot@epitech.eu>'
+#   RENOVATE_PLATFORM: 'github'
+#   RENOVATE_TOKEN: 'token in bashrc'
+#   RENOVATE_CONFIG_FILE: '/opt/renovate/config.json'
+#   RENOVATE_BASE_DIR: '/tmp/renovate/'
+#   GIT_SSL_NO_VERIFY: '1'
+#   NODE_TLS_REJECT_UNAUTHORIZED: '0'
+#   LOG_LEVEL: 'debug'
 
 ---
 apiVersion: v1
@@ -92,7 +92,7 @@ metadata:
   name: renovate-bot
   namespace: renovate
 spec:
-  schedule: '@weekly'
+  schedule: '@hourly'
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:

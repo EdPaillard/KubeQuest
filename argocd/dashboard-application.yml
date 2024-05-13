@@ -16,7 +16,23 @@ spec:
     targetRevision: 7.1.1
     helm:
       releaseName: kubernetes-dashboard
-      # valuesObject:
+      valuesObject:
+        app:
+          ingress:
+            enables: yes
+            issuer:
+              name: letsencrypt-kubequest
+              scope: cluster
+            ingressClassName: traefik
+            annotations:
+              cert-manager.io/common-name: dashboard.k3s.lifoto.co
+            hosts:
+              - dashboard.k3s.lifoto.co
+            path: /
+            pathType: ImplementationSpecific
+            tls:
+              secretName: dashboard-tls
+
         
   destination:
     server: "https://kubernetes.default.svc"
