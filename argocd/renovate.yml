@@ -40,7 +40,7 @@ data:
       "repositories": ["EdPaillard/KubeQuest"],
       "ignorePaths": ["**/roles/**","**/inventory/**"],
       "flux": { "fileMatch": ["argocd/.+\\.yml$"]},
-      "baseBranches": ["developpement"],
+      "baseBranches": ["main"],
       "branchConcurrentLimit": 0,
       "prConcurrentLimit": 0,
       "prHourlyLimit": 0,
