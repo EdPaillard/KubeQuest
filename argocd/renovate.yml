@@ -37,7 +37,7 @@ data:
       "enabled": "true",
       "githubTokenWarn": "false",
       "timezone": "Europe/Paris",
-      "repositories": ["kubequest"],
+      "repositories": ["EdPaillard/KubeQuest"],
       "ignorePaths": ["**/roles/**","**/inventory/**"],
       "flux": { "fileMatch": ["argocd/.+\\.yml$"]},
       "baseBranches": ["developpement"],
