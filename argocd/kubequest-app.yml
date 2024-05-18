@@ -13,7 +13,7 @@ spec:
   source:
     chart: chart-app
     repoURL: https://nolygonnintheo.github.io/chart-app/
-    targetRevision: latest
+    targetRevision: 0.1.0
     helm:
       releaseName: chart-app
 
