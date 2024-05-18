@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-app-kubequest
+  namespace: argocd
+spec:
+  syncPolicy:
+    automated:
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+  project: default
+  source:
+    chart: chart-app
+    repoURL: https://nolygonnintheo.github.io/chart-app/
+    # targetRevision: 7.1.2
+    helm:
+      releaseName: chart-app
+
+        
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: sample-app-ns
