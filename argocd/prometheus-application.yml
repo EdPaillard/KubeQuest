@@ -116,7 +116,7 @@ spec:
                 hosts:
                   - prometheus.k3s.lifoto.co
             pathType: ImplementationSpecific
-          # prometheusSpec:
+          prometheusSpec:
           #   secrets:
           #     - etcd-client-cert
           #     - ca-cert
