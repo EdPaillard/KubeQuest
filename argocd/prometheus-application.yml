@@ -51,21 +51,12 @@ spec:
           #     repository: kiwigrid/k8s-sidecar
           #   datasources:
           #     defaultDatasourceEnabled: false
-          # additionalDataSources:
-          #   - name: Lifoto
-          #     type: prometheus
-          #     uid: prometheus
-          #     url: http://prometheus-kube-prometheus-prometheus.monitoring:9090/
-          #     access: proxy
-          #     isDefault: false
-          #     jsonData:
-          #       timeInterval: 30s
-          #   - name: Lifoto-Logs
-          #     type: loki
-          #     uid: Lifoto-Logs
-          #     url: http://loki:3100/
-          #     access: proxy
-          #     isDefault: false
+          additionalDataSources:
+            - name: Kubequest-Logs
+              type: loki
+              uid: Kubequest-Logs
+              url: http://loki.k3s.lifoto.co
+              isDefault: false
           # extraConfigmapMounts: 
           #   - name: grafana-cacert
           #     configMap: grafana-cacert
