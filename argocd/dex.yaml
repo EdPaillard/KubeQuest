@@ -285,8 +285,8 @@ spec:
     - secretKey: static-hash-password
       remoteRef:
         key: github
-        property: static-secret
-    - secretKey: 
+        property: static_hash_password
+    - secretKey: static-secret
       remoteRef:
         key: github
         property: static_secret
