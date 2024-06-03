@@ -58,6 +58,11 @@ spec:
               secretKeyRef:
                 name: github-client
                 key: client-secret
+          - name: STATIC_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: github-client
+                key: static-secret
       volumes:
         - name: config
           configMap:
@@ -81,7 +86,7 @@ data:
     debug: true
     clusters:
       - client_id: dex-k8s-authenticator
-        client_secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+        client_secret: $STATIC_SECRET
         issuer: https://dex.k3s.lifoto.co:32000
         k8s_ca_pem_file: /etc/tls/tls.crt
         k8s_master_uri: https://kubequest-vm0.westeurope.cloudapp.azure.com:6443
