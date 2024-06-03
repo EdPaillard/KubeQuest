@@ -141,7 +141,7 @@ data:
     staticPasswords:
     - email: "ed.paillard@gmail.com"
       # bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
-      hash: $STATIC_HASH_PASSWORD
+      hash: $2y$10$OhTOIO8z6qKqbDQoduLoZeMbiPXbT1HwIWfCau9fv.kLRwENPB1Ea
       username: "admin"
       userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
 
