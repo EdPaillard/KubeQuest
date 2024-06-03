@@ -116,7 +116,9 @@ kind: Ingress
 metadata:
   name: dex-k8s-authenticator
   namespace: dex
-  # annotations:
+  annotations:  
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
   #   kubernetes.io/tls-acme: "true"
 spec:
   ingressClassName: traefik
