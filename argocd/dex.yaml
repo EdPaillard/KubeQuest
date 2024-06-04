@@ -262,22 +262,16 @@ spec:
     kind: ClusterSecretStore
   target:
     name: dex-tls
-    template:
-      type: kubernetes.io/tls
-      data:
-        tls.crt: "{{ .tlscrt | pkcs12cert }}"
-        tls.key: "{{ .tlskey | pkcs12key }}"
-        ca.crt: "{{ .cacert | pkcs12cert }}"
   data:
-    - secretKey: tlscrt
+    - secretKey: tls.crt
       remoteRef:
         key: dex
         property: cert
-    - secretKey: tlskey
+    - secretKey: tls.key
       remoteRef:
         key: dex
         property: key
-    - secretKey: cacert
+    - secretKey: ca.crt
       remoteRef:
         key: dex
         property: cacert

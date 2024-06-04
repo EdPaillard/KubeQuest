@@ -1,43 +1,43 @@
----
-apiVersion: constraints.gatekeeper.sh/v1beta1
-kind: K8sPSPAllowPrivilegeEscalationContainer
-metadata:
-  name: psp-allow-privilege-escalation-container
-spec:
-  enforcementAction: warn
-  match:
-    kinds:
-      - apiGroups: [""]
-        kinds: ["Pod"]
----
-apiVersion: constraints.gatekeeper.sh/v1beta1
-kind: K8sRequiredAnnotations
-metadata:
-  name: all-must-have-certain-set-of-annotations
-spec:
-  enforcementAction: warn
-  match:
-    kinds:
-      - apiGroups: [""]
-        kinds: ["Service", "Pod", "Namespace"]
-  parameters:
-    message: "All services must have a `kubequest.lil/owner` and `kubequest.lil/runbook` annotations."
-    annotations:
-      - key: kubequest.lil/owner
-        allowedRegex: ^([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}|[a-z]{1,39})$
----
-apiVersion: constraints.gatekeeper.sh/v1beta1
-kind: K8sRequiredLabels
-metadata:
-  name: all-must-have-owner
-spec:
-  enforcementAction: warn
-  match:
-    kinds:
-      - apiGroups: [""]
-        kinds: ["Namespace", "Pod", "Service"]
-  parameters:
-    message: "All namespaces must have an `owner` label that points to your company username"
-    labels:
-      - key: owner
-        allowedRegex: "^[a-zA-Z]+.kubequest.lil-0$"
+# ---
+# apiVersion: constraints.gatekeeper.sh/v1beta1
+# kind: K8sPSPAllowPrivilegeEscalationContainer
+# metadata:
+#   name: psp-allow-privilege-escalation-container
+# spec:
+#   enforcementAction: warn
+#   match:
+#     kinds:
+#       - apiGroups: [""]
+#         kinds: ["Pod"]
+# ---
+# apiVersion: constraints.gatekeeper.sh/v1beta1
+# kind: K8sRequiredAnnotations
+# metadata:
+#   name: all-must-have-certain-set-of-annotations
+# spec:
+#   enforcementAction: warn
+#   match:
+#     kinds:
+#       - apiGroups: [""]
+#         kinds: ["Service", "Pod", "Namespace"]
+#   parameters:
+#     message: "All services must have a `kubequest.lil/owner` and `kubequest.lil/runbook` annotations."
+#     annotations:
+#       - key: kubequest.lil/owner
+#         allowedRegex: ^([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}|[a-z]{1,39})$
+# ---
+# apiVersion: constraints.gatekeeper.sh/v1beta1
+# kind: K8sRequiredLabels
+# metadata:
+#   name: all-must-have-owner
+# spec:
+#   enforcementAction: warn
+#   match:
+#     kinds:
+#       - apiGroups: [""]
+#         kinds: ["Namespace", "Pod", "Service"]
+#   parameters:
+#     message: "All namespaces must have an `owner` label that points to your company username"
+#     labels:
+#       - key: owner
+#         allowedRegex: "^[a-zA-Z]+.kubequest.lil-0$"
