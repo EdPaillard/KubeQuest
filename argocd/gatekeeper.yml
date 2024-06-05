@@ -1,22 +1,22 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: argocd-app-gatekeeper
-  namespace: argocd
-spec:
-  syncPolicy:
-    automated:
-      prune: true
-    syncOptions:
-      - ServerSideApply=true
-      - CreateNamespace=true
-  project: default
-  source:
-    chart: gatekeeper
-    repoURL: https://open-policy-agent.github.io/gatekeeper/charts
-    targetRevision: 3.14.2
-    helm:
-      releaseName: gatekeeper
-  destination:
-    server: "https://kubernetes.default.svc"
-    namespace: gatekeeper
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: argocd-app-gatekeeper
+#   namespace: argocd
+# spec:
+#   syncPolicy:
+#     automated:
+#       prune: true
+#     syncOptions:
+#       - ServerSideApply=true
+#       - CreateNamespace=true
+#   project: default
+#   source:
+#     chart: gatekeeper
+#     repoURL: https://open-policy-agent.github.io/gatekeeper/charts
+#     targetRevision: 3.14.2
+#     helm:
+#       releaseName: gatekeeper
+#   destination:
+#     server: "https://kubernetes.default.svc"
+#     namespace: gatekeeper
