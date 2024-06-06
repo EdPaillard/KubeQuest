@@ -1,51 +1,51 @@
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: network-dns-metrics-policy
-  namespace: kube-system
-spec:
-  ingress:
-  - ports:
-    - port: 9153
-      protocol: TCP
-  podSelector:
-    matchLabels:
-      k8s-app: kube-dns
-  policyTypes:
-  - Ingress
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-network-dns-policy
-  namespace: kube-system
-spec:
-  ingress:
-  - ports:
-    - port: 53
-      protocol: TCP
-    - port: 53
-      protocol: UDP
-  podSelector:
-    matchLabels:
-      k8s-app: kube-dns
-  policyTypes:
-  - Ingress
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-network-ingress-policy
-  namespace: kube-system
-spec:
-  ingress:
-  - ports:
-    - port: 80
-      protocol: TCP
-    - port: 443
-      protocol: TCP
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: traefik
-  policyTypes:
-  - Ingress
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: network-dns-metrics-policy
+#   namespace: kube-system
+# spec:
+#   ingress:
+#   - ports:
+#     - port: 9153
+#       protocol: TCP
+#   podSelector:
+#     matchLabels:
+#       k8s-app: kube-dns
+#   policyTypes:
+#   - Ingress
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: default-network-dns-policy
+#   namespace: kube-system
+# spec:
+#   ingress:
+#   - ports:
+#     - port: 53
+#       protocol: TCP
+#     - port: 53
+#       protocol: UDP
+#   podSelector:
+#     matchLabels:
+#       k8s-app: kube-dns
+#   policyTypes:
+#   - Ingress
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: default-network-ingress-policy
+#   namespace: kube-system
+# spec:
+#   ingress:
+#   - ports:
+#     - port: 80
+#       protocol: TCP
+#     - port: 443
+#       protocol: TCP
+#   podSelector:
+#     matchLabels:
+#       app.kubernetes.io/name: traefik
+#   policyTypes:
+#   - Ingress
