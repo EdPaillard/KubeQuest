@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: rq-kubequest-lil-0
+  namespace: sample-app-ns
+spec:
+  hard:
+    limits:
+      cpu: "1"
+      memory: "2G"
