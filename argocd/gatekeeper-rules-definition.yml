@@ -1,240 +1,240 @@
----
-apiVersion: templates.gatekeeper.sh/v1
-kind: ConstraintTemplate
-metadata:
-  name: k8spspallowprivilegeescalationcontainer
-  annotations:
-    metadata.gatekeeper.sh/title: "Allow Privilege Escalation in Container"
-    metadata.gatekeeper.sh/version: 1.0.1
-    description: >-
-      Controls restricting escalation to root privileges. Corresponds to the
-      `allowPrivilegeEscalation` field in a PodSecurityPolicy. For more
-      information, see
-      https://kubernetes.io/docs/concepts/policy/pod-security-policy/#privilege-escalation
-spec:
-  crd:
-    spec:
-      names:
-        kind: K8sPSPAllowPrivilegeEscalationContainer
-      validation:
-        openAPIV3Schema:
-          type: object
-          description: >-
-            Controls restricting escalation to root privileges. Corresponds to the
-            `allowPrivilegeEscalation` field in a PodSecurityPolicy. For more
-            information, see
-            https://kubernetes.io/docs/concepts/policy/pod-security-policy/#privilege-escalation
-          properties:
-            exemptImages:
-              description: >-
-                Any container that uses an image that matches an entry in this list will be excluded
-                from enforcement. Prefix-matching can be signified with `*`. For example: `my-image-*`.
+# ---
+# apiVersion: templates.gatekeeper.sh/v1
+# kind: ConstraintTemplate
+# metadata:
+#   name: k8spspallowprivilegeescalationcontainer
+#   annotations:
+#     metadata.gatekeeper.sh/title: "Allow Privilege Escalation in Container"
+#     metadata.gatekeeper.sh/version: 1.0.1
+#     description: >-
+#       Controls restricting escalation to root privileges. Corresponds to the
+#       `allowPrivilegeEscalation` field in a PodSecurityPolicy. For more
+#       information, see
+#       https://kubernetes.io/docs/concepts/policy/pod-security-policy/#privilege-escalation
+# spec:
+#   crd:
+#     spec:
+#       names:
+#         kind: K8sPSPAllowPrivilegeEscalationContainer
+#       validation:
+#         openAPIV3Schema:
+#           type: object
+#           description: >-
+#             Controls restricting escalation to root privileges. Corresponds to the
+#             `allowPrivilegeEscalation` field in a PodSecurityPolicy. For more
+#             information, see
+#             https://kubernetes.io/docs/concepts/policy/pod-security-policy/#privilege-escalation
+#           properties:
+#             exemptImages:
+#               description: >-
+#                 Any container that uses an image that matches an entry in this list will be excluded
+#                 from enforcement. Prefix-matching can be signified with `*`. For example: `my-image-*`.
 
-                It is recommended that users use the fully-qualified Docker image name (e.g. start with a domain name)
-                in order to avoid unexpectedly exempting images from an untrusted repository.
-              type: array
-              items:
-                type: string
-  targets:
-    - target: admission.k8s.gatekeeper.sh
-      rego: |
-        package k8spspallowprivilegeescalationcontainer
+#                 It is recommended that users use the fully-qualified Docker image name (e.g. start with a domain name)
+#                 in order to avoid unexpectedly exempting images from an untrusted repository.
+#               type: array
+#               items:
+#                 type: string
+#   targets:
+#     - target: admission.k8s.gatekeeper.sh
+#       rego: |
+#         package k8spspallowprivilegeescalationcontainer
 
-        import data.lib.exclude_update.is_update
-        import data.lib.exempt_container.is_exempt
+#         import data.lib.exclude_update.is_update
+#         import data.lib.exempt_container.is_exempt
 
-        violation[{"msg": msg, "details": {}}] {
-            # spec.containers.securityContext.allowPrivilegeEscalation field is immutable.
-            not is_update(input.review)
+#         violation[{"msg": msg, "details": {}}] {
+#             # spec.containers.securityContext.allowPrivilegeEscalation field is immutable.
+#             not is_update(input.review)
 
-            c := input_containers[_]
-            not is_exempt(c)
-            input_allow_privilege_escalation(c)
-            msg := sprintf("Privilege escalation container is not allowed: %v", [c.name])
-        }
+#             c := input_containers[_]
+#             not is_exempt(c)
+#             input_allow_privilege_escalation(c)
+#             msg := sprintf("Privilege escalation container is not allowed: %v", [c.name])
+#         }
 
-        input_allow_privilege_escalation(c) {
-            not has_field(c, "securityContext")
-        }
-        input_allow_privilege_escalation(c) {
-            not c.securityContext.allowPrivilegeEscalation == false
-        }
-        input_containers[c] {
-            c := input.review.object.spec.containers[_]
-        }
-        input_containers[c] {
-            c := input.review.object.spec.initContainers[_]
-        }
-        input_containers[c] {
-            c := input.review.object.spec.ephemeralContainers[_]
-        }
-        # has_field returns whether an object has a field
-        has_field(object, field) = true {
-            object[field]
-        }
-      libs:
-        - |
-          package lib.exclude_update
+#         input_allow_privilege_escalation(c) {
+#             not has_field(c, "securityContext")
+#         }
+#         input_allow_privilege_escalation(c) {
+#             not c.securityContext.allowPrivilegeEscalation == false
+#         }
+#         input_containers[c] {
+#             c := input.review.object.spec.containers[_]
+#         }
+#         input_containers[c] {
+#             c := input.review.object.spec.initContainers[_]
+#         }
+#         input_containers[c] {
+#             c := input.review.object.spec.ephemeralContainers[_]
+#         }
+#         # has_field returns whether an object has a field
+#         has_field(object, field) = true {
+#             object[field]
+#         }
+#       libs:
+#         - |
+#           package lib.exclude_update
 
-          is_update(review) {
-              review.operation == "UPDATE"
-          }
-        - |
-          package lib.exempt_container
+#           is_update(review) {
+#               review.operation == "UPDATE"
+#           }
+#         - |
+#           package lib.exempt_container
 
-          is_exempt(container) {
-              exempt_images := object.get(object.get(input, "parameters", {}), "exemptImages", [])
-              img := container.image
-              exemption := exempt_images[_]
-              _matches_exemption(img, exemption)
-          }
+#           is_exempt(container) {
+#               exempt_images := object.get(object.get(input, "parameters", {}), "exemptImages", [])
+#               img := container.image
+#               exemption := exempt_images[_]
+#               _matches_exemption(img, exemption)
+#           }
 
-          _matches_exemption(img, exemption) {
-              not endswith(exemption, "*")
-              exemption == img
-          }
+#           _matches_exemption(img, exemption) {
+#               not endswith(exemption, "*")
+#               exemption == img
+#           }
 
-          _matches_exemption(img, exemption) {
-              endswith(exemption, "*")
-              prefix := trim_suffix(exemption, "*")
-              startswith(img, prefix)
-          }
----
-apiVersion: templates.gatekeeper.sh/v1
-kind: ConstraintTemplate
-metadata:
-  name: k8srequiredannotations
-  annotations:
-    metadata.gatekeeper.sh/title: "Required Annotations"
-    metadata.gatekeeper.sh/version: 1.0.1
-    description: >-
-      Requires resources to contain specified annotations, with values matching
-      provided regular expressions.
-spec:
-  crd:
-    spec:
-      names:
-        kind: K8sRequiredAnnotations
-      validation:
-        openAPIV3Schema:
-          type: object
-          properties:
-            message:
-              type: string
-            annotations:
-              type: array
-              description: >-
-                A list of annotations and values the object must specify.
-              items:
-                type: object
-                properties:
-                  key:
-                    type: string
-                    description: >-
-                      The required annotation.
-                  allowedRegex:
-                    type: string
-                    description: >-
-                      If specified, a regular expression the annotation's value
-                      must match. The value must contain at least one match for
-                      the regular expression.
-  targets:
-    - target: admission.k8s.gatekeeper.sh
-      rego: |
-        package k8srequiredannotations
+#           _matches_exemption(img, exemption) {
+#               endswith(exemption, "*")
+#               prefix := trim_suffix(exemption, "*")
+#               startswith(img, prefix)
+#           }
+# ---
+# apiVersion: templates.gatekeeper.sh/v1
+# kind: ConstraintTemplate
+# metadata:
+#   name: k8srequiredannotations
+#   annotations:
+#     metadata.gatekeeper.sh/title: "Required Annotations"
+#     metadata.gatekeeper.sh/version: 1.0.1
+#     description: >-
+#       Requires resources to contain specified annotations, with values matching
+#       provided regular expressions.
+# spec:
+#   crd:
+#     spec:
+#       names:
+#         kind: K8sRequiredAnnotations
+#       validation:
+#         openAPIV3Schema:
+#           type: object
+#           properties:
+#             message:
+#               type: string
+#             annotations:
+#               type: array
+#               description: >-
+#                 A list of annotations and values the object must specify.
+#               items:
+#                 type: object
+#                 properties:
+#                   key:
+#                     type: string
+#                     description: >-
+#                       The required annotation.
+#                   allowedRegex:
+#                     type: string
+#                     description: >-
+#                       If specified, a regular expression the annotation's value
+#                       must match. The value must contain at least one match for
+#                       the regular expression.
+#   targets:
+#     - target: admission.k8s.gatekeeper.sh
+#       rego: |
+#         package k8srequiredannotations
 
-        violation[{"msg": msg, "details": {"missing_annotations": missing}}] {
-            provided := {annotation | input.review.object.metadata.annotations[annotation]}
-            required := {annotation | annotation := input.parameters.annotations[_].key}
-            missing := required - provided
-            count(missing) > 0
-            msg := sprintf("you must provide annotation(s): %v", [missing])
-        }
+#         violation[{"msg": msg, "details": {"missing_annotations": missing}}] {
+#             provided := {annotation | input.review.object.metadata.annotations[annotation]}
+#             required := {annotation | annotation := input.parameters.annotations[_].key}
+#             missing := required - provided
+#             count(missing) > 0
+#             msg := sprintf("you must provide annotation(s): %v", [missing])
+#         }
 
-        violation[{"msg": msg}] {
-          value := input.review.object.metadata.annotations[key]
-          expected := input.parameters.annotations[_]
-          expected.key == key
-          expected.allowedRegex != ""
-          not regex.match(expected.allowedRegex, value)
-          msg := sprintf("Annotation <%v: %v> does not satisfy allowed regex: %v", [key, value, expected.allowedRegex])
-        }
----
-apiVersion: templates.gatekeeper.sh/v1
-kind: ConstraintTemplate
-metadata:
-  name: k8srequiredlabels
-  annotations:
-    metadata.gatekeeper.sh/title: "Required Labels"
-    metadata.gatekeeper.sh/version: 1.1.1
-    description: >-
-      Requires resources to contain specified labels, with values matching
-      provided regular expressions.
-spec:
-  crd:
-    spec:
-      names:
-        kind: K8sRequiredLabels
-      validation:
-        openAPIV3Schema:
-          type: object
-          properties:
-            message:
-              type: string
-            labels:
-              type: array
-              description: >-
-                A list of labels and values the object must specify.
-              items:
-                type: object
-                properties:
-                  key:
-                    type: string
-                    description: >-
-                      The required label.
-                  allowedRegex:
-                    type: string
-                    description: >-
-                      If specified, a regular expression the annotation's value
-                      must match. The value must contain at least one match for
-                      the regular expression.
-  targets:
-    - target: admission.k8s.gatekeeper.sh
-      code:
-      - engine: K8sNativeValidation
-        source:
-          validations:
-          - expression: '(has(variables.anyObject.metadata) && variables.params.labels.all(entry, has(variables.anyObject.metadata.labels) && entry.key in variables.anyObject.metadata.labels))'
-            messageExpression: '"missing required label, requires all of: " + variables.params.labels.map(entry, entry.key).join(", ")'
-          - expression: '(has(variables.anyObject.metadata) && variables.params.labels.all(entry, has(variables.anyObject.metadata.labels) && entry.key in variables.anyObject.metadata.labels && string(variables.anyObject.metadata.labels[entry.key]).matches(string(entry.allowedRegex))))'
-            message: "regex mismatch"
-      - engine: Rego
-        source:
-          rego: |
-            package k8srequiredlabels
+#         violation[{"msg": msg}] {
+#           value := input.review.object.metadata.annotations[key]
+#           expected := input.parameters.annotations[_]
+#           expected.key == key
+#           expected.allowedRegex != ""
+#           not regex.match(expected.allowedRegex, value)
+#           msg := sprintf("Annotation <%v: %v> does not satisfy allowed regex: %v", [key, value, expected.allowedRegex])
+#         }
+# ---
+# apiVersion: templates.gatekeeper.sh/v1
+# kind: ConstraintTemplate
+# metadata:
+#   name: k8srequiredlabels
+#   annotations:
+#     metadata.gatekeeper.sh/title: "Required Labels"
+#     metadata.gatekeeper.sh/version: 1.1.1
+#     description: >-
+#       Requires resources to contain specified labels, with values matching
+#       provided regular expressions.
+# spec:
+#   crd:
+#     spec:
+#       names:
+#         kind: K8sRequiredLabels
+#       validation:
+#         openAPIV3Schema:
+#           type: object
+#           properties:
+#             message:
+#               type: string
+#             labels:
+#               type: array
+#               description: >-
+#                 A list of labels and values the object must specify.
+#               items:
+#                 type: object
+#                 properties:
+#                   key:
+#                     type: string
+#                     description: >-
+#                       The required label.
+#                   allowedRegex:
+#                     type: string
+#                     description: >-
+#                       If specified, a regular expression the annotation's value
+#                       must match. The value must contain at least one match for
+#                       the regular expression.
+#   targets:
+#     - target: admission.k8s.gatekeeper.sh
+#       code:
+#       - engine: K8sNativeValidation
+#         source:
+#           validations:
+#           - expression: '(has(variables.anyObject.metadata) && variables.params.labels.all(entry, has(variables.anyObject.metadata.labels) && entry.key in variables.anyObject.metadata.labels))'
+#             messageExpression: '"missing required label, requires all of: " + variables.params.labels.map(entry, entry.key).join(", ")'
+#           - expression: '(has(variables.anyObject.metadata) && variables.params.labels.all(entry, has(variables.anyObject.metadata.labels) && entry.key in variables.anyObject.metadata.labels && string(variables.anyObject.metadata.labels[entry.key]).matches(string(entry.allowedRegex))))'
+#             message: "regex mismatch"
+#       - engine: Rego
+#         source:
+#           rego: |
+#             package k8srequiredlabels
 
-            get_message(parameters, _default) := _default {
-              not parameters.message
-            }
+#             get_message(parameters, _default) := _default {
+#               not parameters.message
+#             }
 
-            get_message(parameters, _) := parameters.message
+#             get_message(parameters, _) := parameters.message
 
-            violation[{"msg": msg, "details": {"missing_labels": missing}}] {
-              provided := {label | input.review.object.metadata.labels[label]}
-              required := {label | label := input.parameters.labels[_].key}
-              missing := required - provided
-              count(missing) > 0
-              def_msg := sprintf("you must provide labels: %v", [missing])
-              msg := get_message(input.parameters, def_msg)
-            }
+#             violation[{"msg": msg, "details": {"missing_labels": missing}}] {
+#               provided := {label | input.review.object.metadata.labels[label]}
+#               required := {label | label := input.parameters.labels[_].key}
+#               missing := required - provided
+#               count(missing) > 0
+#               def_msg := sprintf("you must provide labels: %v", [missing])
+#               msg := get_message(input.parameters, def_msg)
+#             }
 
-            violation[{"msg": msg}] {
-              value := input.review.object.metadata.labels[key]
-              expected := input.parameters.labels[_]
-              expected.key == key
-              # do not match if allowedRegex is not defined, or is an empty string
-              expected.allowedRegex != ""
-              not regex.match(expected.allowedRegex, value)
-              def_msg := sprintf("Label <%v: %v> does not satisfy allowed regex: %v", [key, value, expected.allowedRegex])
-              msg := get_message(input.parameters, def_msg)
-            }
+#             violation[{"msg": msg}] {
+#               value := input.review.object.metadata.labels[key]
+#               expected := input.parameters.labels[_]
+#               expected.key == key
+#               # do not match if allowedRegex is not defined, or is an empty string
+#               expected.allowedRegex != ""
+#               not regex.match(expected.allowedRegex, value)
+#               def_msg := sprintf("Label <%v: %v> does not satisfy allowed regex: %v", [key, value, expected.allowedRegex])
+#               msg := get_message(input.parameters, def_msg)
+#             }
