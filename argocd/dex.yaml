@@ -306,30 +306,6 @@ spec:
         key: github
         property: static_secret
 
-
-# apiVersion: v1
-# data:
-#   client-id: MjJiMDliNmI0ODI4YWNhNWEyMjc=
-#   client-secret: NzU1MDczNzlkYjQ3NjUzM2I0ZGU3ZGU4NjlhNzIyYWNkY2FhMGJhMw==
-#   static_hash_password:
-#   static_secret:
-# kind: Secret
-# metadata:
-#   name: github-client
-#   namespace: dex
-# ---
-# apiVersion: cert-manager.io/v1
-# kind: Certificate
-# metadata:
-#   name: cert-auth-dex
-#   namespace: dex
-# spec:
-#   secretName: dex-tls
-#   dnsNames:
-#     - dex.k3s.lifoto.co
-#   issuerRef:
-#     name: letsencrypt-kubequest
-#     kind: ClusterIssuer
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
