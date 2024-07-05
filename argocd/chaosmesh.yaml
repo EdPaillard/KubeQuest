@@ -18,6 +18,8 @@ spec:
       releaseName: chaosmesh
       valuesObject:
         dashboard:
+          service:
+            type: ClusterIP
           ingress:
             enabled: true
             annotations:
