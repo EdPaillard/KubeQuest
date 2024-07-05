@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: argocd-app-chaosmesh
-  namespace: chaosmesh
+  namespace: argocd
 spec:
   syncPolicy:
     automated:
