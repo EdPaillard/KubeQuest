@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-app-chaosmesh
+  namespace: chaosmesh
+spec:
+  syncPolicy:
+    automated:
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+  project: default
+  source:
+    chart: chaos-mesh
+    repoURL: https://charts.chaos-mesh.org
+    targetRevision: 2.6.3
+    helm:
+      releaseName: chaosmesh
+      valuesObject:
+        dashboard:
+          ingress:
+            enabled: true
+            annotations:
+              cert-manager.io/cluster-issuer: "letsencrypt-kubequest"
+              cert-manager.io/common-name: chaosmesh.k3s.lifoto.co
+
+            hosts:
+              - name: chaosmesh.k3s.lifoto.co
+                tls: true
+                tlsSecret: chaosmesh-tls
+
+            paths: ["/"]
+
+            ingressClassName: "traefik"
+
+
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: chaosmesh
